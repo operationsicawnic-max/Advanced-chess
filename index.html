@@ -1,21 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Advanced Chess</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Chess libraries -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css"/>
+  <!-- REQUIRED: jQuery -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-  <link rel="stylesheet" href="css/style.css" />
+  <!-- Chess logic -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
+
+  <!-- Chessboard UI -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css"/>
+
+  <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
   <div class="container">
-    <h1>♟️ Advanced Chess</h1>
+    <h1>♟ Advanced Chess</h1>
 
     <div id="board"></div>
 
@@ -44,10 +50,7 @@
     </div>
   </div>
 
-  <audio id="moveSound" src="assets/sounds/move.mp3"></audio>
-  <audio id="captureSound" src="assets/sounds/capture.mp3"></audio>
-
-  <!-- Main entry -->
+  <!-- ENTRY POINT -->
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
