@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Advanced Chess Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Chess libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css"/>
+
+<style>
+:root {
+  --bg: #121212;
+  --card: #1e1e1e;
+  --text: #ffffff;
+  --accent: #4caf50;
+}
+
+body.light {
+  --bg: #f4f4f4;
+  --card: #ffffff;
+  --text: #000000;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+}
+
+.container {
+  max-width: 420px;
+  padding: 15px;
+}
+
+h1 {
+  text-align: center;
+}
+
+#board {
+  width: 100%;
+  margin: 10px auto;
+}
+
+.panel {
+  background: var(--card);
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.timer {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}
+
+.highlight {
+  background: radial-gradient(circle, rgba(0,255,0,0.4) 40%, transparent 45%);
+}
+</style>
+</head>
+
+<body class="dark">
+<div class="container">
+
+<h1>♟️ Chess</h1>
+
+<div id="board"></div>
+
+<div class="panel">
+  <div class="timer">
+    <span>White ⏱️ <span id="whiteTime">05:00</span></span>
+    <span>Black ⏱️ <span id="blackTime">05:00</span></span>
+  </div>
+  <p id="status"></p>
+</div>
+
+<div class="panel">
+  <button onclick="toggleTheme()">🌙 Toggle Dark Mode</button>
+  <button onclick="resetGame()">🔄 New Game</button>
+</div>
+
+<audio id="moveSound" src="https://cdn.pixabay.com/audio/2022/03/15/audio_5c7fba9d3d.mp3"></audio>
+<audio id="captureSound" src="https://cdn.pixabay.com/audio/2022/03/15/audio_1b9a76db5c.mp3"></audio>
+
+</div>
+
+<script>
+let board = null;
+let game = new Chess();
+
+let whiteSeconds = 300;
+let blackSeconds = 300;
+let timer = null;
+
+const statusEl = document.getElementById("status");
+const whiteTimeEl = document.getElementById("whiteTime");
+const blackTimeEl = document.getElementById("blackTime");
+
+const moveSound = document.getElementById("moveSound");
+const captureSound = document.getElementById("captureSound");
+
+function onDragStart (source, piece) {
+  if (game.game_over()) return false;
+  if (game.turn() === 'b' && piece.search(/^w/) !== -1) return false;
+}
+
+function onDrop (source, target) {
+  const move = game.move({
+    from: source,
+    to: target,
+    promotion: 'q'
+  });
+
+  if (move === null) return 'snapback';
+
+  (move.captured ? captureSound : moveSound).play();
+  updateStatus();
+
+  setTimeout(makeAIMove, 300);
+}
+
+function makeAIMove() {
+  if (game.game_over()) return;
+
+  const moves = game.moves();
+  const move = moves[Math.floor(Math.random() * moves.length)];
+  game.move(move);
+  moveSound.play();
+  board.position(game.fen());
+  updateStatus();
+}
+
+function updateStatus() {
+  let status = "";
+
+  if (game.in_checkmate()) {
+    status = "♚ Checkmate!";
+    stopTimer();
+  } else if (game.in_check()) {
+    status = "⚠️ Check!";
+  } else {
+    status = (game.turn() === 'w' ? "White" : "Black") + "'s turn";
+  }
+
+  statusEl.textContent = status;
+}
+
+function updateTimers() {
+  timer = setInterval(() => {
+    if (game.turn() === 'w') whiteSeconds--;
+    else blackSeconds--;
+
+    whiteTimeEl.textContent = formatTime(whiteSeconds);
+    blackTimeEl.textContent = formatTime(blackSeconds);
+
+    if (whiteSeconds <= 0 || blackSeconds <= 0) {
+      statusEl.textContent = "⏱️ Time Over!";
+      stopTimer();
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timer);
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function resetGame() {
+  game.reset();
+  board.start();
+  whiteSeconds = blackSeconds = 300;
+  updateStatus();
+  stopTimer();
+  updateTimers();
+}
+
+function toggleTheme() {
+  document.body.classList.toggle("light");
+}
+
+const config = {
+  draggable: true,
+  position: 'start',
+  onDragStart,
+  onDrop,
+  onSnapEnd: () => board.position(game.fen())
+};
+
+board = Chessboard('board', config);
+updateStatus();
+updateTimers();
+</script>
+
+</body>
+</html>
