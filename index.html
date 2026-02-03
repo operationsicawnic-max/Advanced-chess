@@ -1,224 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Ultimate Chess</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>Advanced Chess</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Chess libs -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css"/>
+  <!-- Chess libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css"/>
 
-<style>
-:root {
-  --bg: #0f0f0f;
-  --card: #1e1e1e;
-  --text: #fff;
-  --accent: #4caf50;
-}
-body.light {
-  --bg: #f4f4f4;
-  --card: #fff;
-  --text: #000;
-}
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: Arial, sans-serif;
-  display: flex;
-  justify-content: center;
-}
-.container {
-  max-width: 420px;
-  width: 100%;
-  padding: 15px;
-}
-h1 { text-align: center; }
-#board { width: 100%; margin-top: 10px; }
-.panel {
-  background: var(--card);
-  padding: 10px;
-  border-radius: 8px;
-  margin-top: 10px;
-}
-.timer {
-  display: flex;
-  justify-content: space-between;
-  font-weight: bold;
-}
-button, select {
-  width: 100%;
-  padding: 10px;
-  margin-top: 6px;
-  border: none;
-  border-radius: 6px;
-  background: var(--accent);
-  color: white;
-  font-size: 15px;
-  cursor: pointer;
-}
-#moves { max-height: 100px; overflow-y: auto; font-size: 14px; }
-.highlight {
-  background: radial-gradient(circle, rgba(0,255,0,.4) 40%, transparent 45%) !important;
-}
-</style>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 
 <body>
-<div class="container">
+  <div class="container">
+    <h1>♟️ Advanced Chess</h1>
 
-<h1>♟️ Ultimate Chess</h1>
+    <div id="board"></div>
 
-<div id="board"></div>
+    <div class="panel">
+      <div class="timer">
+        <span>White ⏱ <span id="wTime">05:00</span></span>
+        <span>Black ⏱ <span id="bTime">05:00</span></span>
+      </div>
+      <p id="status"></p>
+    </div>
 
-<div class="panel">
-  <div class="timer">
-    <span>White ⏱️ <span id="wTime">05:00</span></span>
-    <span>Black ⏱️ <span id="bTime">05:00</span></span>
+    <div class="panel">
+      <select id="level">
+        <option value="5">AI Easy</option>
+        <option value="10">AI Medium</option>
+        <option value="15">AI Hard</option>
+      </select>
+      <button id="undoBtn">↩ Undo</button>
+      <button id="newGameBtn">🔄 New Game</button>
+      <button id="themeBtn">🌙 Toggle Theme</button>
+    </div>
+
+    <div class="panel">
+      <strong>Moves</strong>
+      <div id="moves"></div>
+    </div>
   </div>
-  <p id="status"></p>
-</div>
 
-<div class="panel">
-  <select id="level">
-    <option value="5">🤖 Easy</option>
-    <option value="10">🤖 Medium</option>
-    <option value="15">🤖 Hard</option>
-  </select>
-  <button onclick="undoMove()">↩️ Undo</button>
-  <button onclick="newGame()">🔄 New Game</button>
-  <button onclick="toggleTheme()">🌙 Toggle Theme</button>
-</div>
+  <audio id="moveSound" src="assets/sounds/move.mp3"></audio>
+  <audio id="captureSound" src="assets/sounds/capture.mp3"></audio>
 
-<div class="panel">
-  <strong>Moves</strong>
-  <div id="moves"></div>
-</div>
-
-<audio id="moveS" src="https://cdn.pixabay.com/audio/2022/03/15/audio_5c7fba9d3d.mp3"></audio>
-<audio id="capS" src="https://cdn.pixabay.com/audio/2022/03/15/audio_1b9a76db5c.mp3"></audio>
-
-</div>
-
-<script>
-// ---------------- Vars ----------------
-let board, game, engine;
-let timer = null, wSec = 300, bSec = 300;
-
-const wTime = document.getElementById("wTime");
-const bTime = document.getElementById("bTime");
-const statusEl = document.getElementById("status");
-const movesDiv = document.getElementById("moves");
-
-const moveS = document.getElementById("moveS");
-const capS = document.getElementById("capS");
-
-// ---------------- Timer ----------------
-function startTimer(){
-  stopTimer();
-  timer = setInterval(() => {
-    if(game.turn() === 'w') wSec--;
-    else bSec--;
-    wTime.textContent = formatTime(wSec);
-    bTime.textContent = formatTime(bSec);
-  }, 1000);
-}
-function stopTimer(){ if(timer){ clearInterval(timer); timer = null; }}
-function formatTime(s){ return Math.floor(s/60) + ":" + String(s%60).padStart(2,'0'); }
-
-// ---------------- Engine Setup ----------------
-function initEngine(){
-  engine = new Worker("https://cdn.jsdelivr.net/gh/niklasf/stockfish.js@master/src/stockfish.js");
-  engine.onmessage = e => {
-    if(typeof e.data === "string" && e.data.startsWith("bestmove")){
-      const mv = e.data.split(" ")[1];
-      game.move({ from: mv.slice(0,2), to: mv.slice(2,4), promotion: "q" });
-      board.position(game.fen());
-      updateBoard();
-    }
-  };
-}
-
-// ---------------- Chess Logic ----------------
-function onDragStart(source, piece){
-  if(game.game_over()) return false;
-  if(game.turn() === 'b' && piece.startsWith('w')) return false;
-  highlightSquares(source);
-}
-function onDrop(source, target){
-  clearHighlights();
-  const m = game.move({ from: source, to: target, promotion: 'q' });
-  if(!m) return "snapback";
-  (m.captured ? capS : moveS).play();
-  updateBoard();
-  setTimeout(aiMove, 200);
-}
-function aiMove(){
-  if(game.game_over()) return;
-  engine.postMessage("position fen " + game.fen());
-  engine.postMessage("go depth " + document.getElementById("level").value);
-}
-function updateBoard(){
-  board.position(game.fen());
-  movesDiv.innerHTML = game.history().join("<br>");
-  if(game.in_checkmate()) statusEl.textContent = "♚ Checkmate!";
-  else if(game.in_check()) statusEl.textContent = "⚠️ Check!";
-  else statusEl.textContent = (game.turn() === 'w' ? "White" : "Black") + " to move";
-}
-
-// ---------------- Highlight ----------------
-function highlightSquares(square){
-  game.moves({ square, verbose: true }).forEach(m => {
-    document.querySelector(`[data-square="${m.to}"]`)?.classList.add("highlight");
-  });
-}
-function clearHighlights(){
-  document.querySelectorAll(".highlight").forEach(el => el.classList.remove("highlight"));
-}
-
-// ---------------- Controls ----------------
-function undoMove(){
-  game.undo(); game.undo();
-  updateBoard();
-}
-function newGame(){
-  if(!confirm("Start a new game?")) return;
-  stopTimer();
-  board.destroy();
-  game = new Chess();
-  wSec = bSec = 300;
-  wTime.textContent = bTime.textContent = "05:00";
-  initBoard();
-  updateBoard();
-  startTimer();
-}
-function toggleTheme(){
-  document.body.classList.toggle("light");
-}
-
-// ---------------- Init ----------------
-function initBoard(){
-  board = Chessboard('board', {
-    draggable: true,
-    position: 'start',
-    onDragStart,
-    onDrop,
-    onSnapEnd: () => board.position(game.fen())
-  });
-}
-
-function init(){
-  game = new Chess();
-  initEngine();
-  initBoard();
-  updateBoard();
-  startTimer();
-}
-
-init();
-</script>
-
+  <!-- Main entry -->
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
