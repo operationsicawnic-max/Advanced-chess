@@ -12,60 +12,56 @@
 
 <style>
 :root {
-  --bg:#0e0e0e;
-  --card:#1c1c1c;
-  --text:#fff;
-  --accent:#4caf50;
+  --bg: #0f0f0f;
+  --card: #1e1e1e;
+  --text: #fff;
+  --accent: #4caf50;
 }
 body.light {
-  --bg:#f3f3f3;
-  --card:#fff;
-  --text:#000;
+  --bg: #f4f4f4;
+  --card: #fff;
+  --text: #000;
 }
 body {
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:Arial, sans-serif;
-  display:flex;
-  justify-content:center;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
 }
 .container {
-  max-width:420px;
-  width:100%;
-  padding:12px;
+  max-width: 420px;
+  width: 100%;
+  padding: 15px;
 }
-h1 { text-align:center; }
-#board { width:100%; }
+h1 { text-align: center; }
+#board { width: 100%; margin-top: 10px; }
 .panel {
-  background:var(--card);
-  padding:10px;
-  border-radius:10px;
-  margin-top:10px;
+  background: var(--card);
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 10px;
 }
 .timer {
-  display:flex;
-  justify-content:space-between;
-  font-weight:bold;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
 }
 button, select {
-  width:100%;
-  padding:10px;
-  margin-top:6px;
-  border:none;
-  border-radius:8px;
-  background:var(--accent);
-  color:white;
-  font-size:15px;
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
 }
-select { background:#333; }
-#moves {
-  max-height:120px;
-  overflow:auto;
-  font-size:14px;
-}
+#moves { max-height: 100px; overflow-y: auto; font-size: 14px; }
 .highlight {
-  background:radial-gradient(circle, rgba(0,255,0,.4) 40%, transparent 45%) !important;
+  background: radial-gradient(circle, rgba(0,255,0,.4) 40%, transparent 45%) !important;
 }
 </style>
 </head>
@@ -107,117 +103,122 @@ select { background:#333; }
 </div>
 
 <script>
+// ---------------- Vars ----------------
 let board, game, engine;
-let timer=null, wSec=300, bSec=300;
+let timer = null, wSec = 300, bSec = 300;
 
-const wTime=document.getElementById("wTime");
-const bTime=document.getElementById("bTime");
-const status=document.getElementById("status");
-const movesDiv=document.getElementById("moves");
+const wTime = document.getElementById("wTime");
+const bTime = document.getElementById("bTime");
+const statusEl = document.getElementById("status");
+const movesDiv = document.getElementById("moves");
 
-const moveS=document.getElementById("moveS");
-const capS=document.getElementById("capS");
+const moveS = document.getElementById("moveS");
+const capS = document.getElementById("capS");
 
-/* ---------------- TIMER ---------------- */
+// ---------------- Timer ----------------
 function startTimer(){
   stopTimer();
-  timer=setInterval(()=>{
-    game.turn()==='w'?wSec--:bSec--;
-    wTime.textContent=format(wSec);
-    bTime.textContent=format(bSec);
-  },1000);
+  timer = setInterval(() => {
+    if(game.turn() === 'w') wSec--;
+    else bSec--;
+    wTime.textContent = formatTime(wSec);
+    bTime.textContent = formatTime(bSec);
+  }, 1000);
 }
-function stopTimer(){ if(timer){clearInterval(timer);timer=null;} }
-function format(s){return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
+function stopTimer(){ if(timer){ clearInterval(timer); timer = null; }}
+function formatTime(s){ return Math.floor(s/60) + ":" + String(s%60).padStart(2,'0'); }
 
-/* ---------------- ENGINE ---------------- */
+// ---------------- Engine Setup ----------------
 function initEngine(){
-  engine=new Worker("https://cdn.jsdelivr.net/npm/stockfish@16/stockfish.js");
-  engine.postMessage("uci");
+  engine = new Worker("https://cdn.jsdelivr.net/gh/niklasf/stockfish.js@master/src/stockfish.js");
+  engine.onmessage = e => {
+    if(typeof e.data === "string" && e.data.startsWith("bestmove")){
+      const mv = e.data.split(" ")[1];
+      game.move({ from: mv.slice(0,2), to: mv.slice(2,4), promotion: "q" });
+      board.position(game.fen());
+      updateBoard();
+    }
+  };
+}
+
+// ---------------- Chess Logic ----------------
+function onDragStart(source, piece){
+  if(game.game_over()) return false;
+  if(game.turn() === 'b' && piece.startsWith('w')) return false;
+  highlightSquares(source);
+}
+function onDrop(source, target){
+  clearHighlights();
+  const m = game.move({ from: source, to: target, promotion: 'q' });
+  if(!m) return "snapback";
+  (m.captured ? capS : moveS).play();
+  updateBoard();
+  setTimeout(aiMove, 200);
 }
 function aiMove(){
-  engine.postMessage("position fen "+game.fen());
-  engine.postMessage("go depth "+document.getElementById("level").value);
+  if(game.game_over()) return;
+  engine.postMessage("position fen " + game.fen());
+  engine.postMessage("go depth " + document.getElementById("level").value);
 }
-engineMessage = e=>{
-  if(e.data.startsWith("bestmove")){
-    const m=e.data.split(" ")[1];
-    game.move({from:m.slice(0,2),to:m.slice(2,4),promotion:'q'});
-    board.position(game.fen());
-    update();
-  }
-}
-
-/* ---------------- GAME ---------------- */
-function onDragStart(s,p){
-  if(game.game_over()) return false;
-  if(game.turn()==='b' && p.startsWith('w')) return false;
-  highlight(s);
-}
-function onDrop(s,t){
-  clearHighlight();
-  const m=game.move({from:s,to:t,promotion:'q'});
-  if(!m) return "snapback";
-  (m.captured?capS:moveS).play();
-  update();
-  setTimeout(aiMove,300);
-}
-function update(){
+function updateBoard(){
   board.position(game.fen());
-  movesDiv.innerHTML=game.history().join("<br>");
-  if(game.in_checkmate()) status.textContent="♚ Checkmate!";
-  else if(game.in_check()) status.textContent="⚠️ Check!";
-  else status.textContent=(game.turn()==='w'?"White":"Black")+" to move";
+  movesDiv.innerHTML = game.history().join("<br>");
+  if(game.in_checkmate()) statusEl.textContent = "♚ Checkmate!";
+  else if(game.in_check()) statusEl.textContent = "⚠️ Check!";
+  else statusEl.textContent = (game.turn() === 'w' ? "White" : "Black") + " to move";
 }
 
-/* ---------------- HIGHLIGHT ---------------- */
-function highlight(s){
-  game.moves({square:s,verbose:true})
-    .forEach(m=>{
-      document.querySelector(`[data-square='${m.to}']`)?.classList.add("highlight");
-    });
+// ---------------- Highlight ----------------
+function highlightSquares(square){
+  game.moves({ square, verbose: true }).forEach(m => {
+    document.querySelector(`[data-square="${m.to}"]`)?.classList.add("highlight");
+  });
 }
-function clearHighlight(){
-  document.querySelectorAll(".highlight").forEach(e=>e.classList.remove("highlight"));
+function clearHighlights(){
+  document.querySelectorAll(".highlight").forEach(el => el.classList.remove("highlight"));
 }
 
-/* ---------------- CONTROLS ---------------- */
+// ---------------- Controls ----------------
 function undoMove(){
   game.undo(); game.undo();
-  update();
+  updateBoard();
 }
 function newGame(){
   if(!confirm("Start a new game?")) return;
   stopTimer();
   board.destroy();
-  game=new Chess();
-  wSec=bSec=300;
-  wTime.textContent=bTime.textContent="05:00";
+  game = new Chess();
+  wSec = bSec = 300;
+  wTime.textContent = bTime.textContent = "05:00";
   initBoard();
-  update();
+  updateBoard();
   startTimer();
 }
-function toggleTheme(){document.body.classList.toggle("light");}
+function toggleTheme(){
+  document.body.classList.toggle("light");
+}
 
-/* ---------------- INIT ---------------- */
+// ---------------- Init ----------------
 function initBoard(){
-  board=Chessboard("board",{
-    draggable:true,
-    position:"start",
+  board = Chessboard('board', {
+    draggable: true,
+    position: 'start',
     onDragStart,
     onDrop,
-    onSnapEnd:()=>board.position(game.fen())
+    onSnapEnd: () => board.position(game.fen())
   });
 }
+
 function init(){
-  game=new Chess();
+  game = new Chess();
   initEngine();
-  engine.onmessage=engineMessage;
   initBoard();
-  update();
+  updateBoard();
   startTimer();
 }
+
 init();
 </script>
+
 </body>
 </html>
