@@ -2,24 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Advanced Chess Game</title>
+<title>Advanced Chess</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Chess libraries -->
+<!-- Chess Libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css"/>
 
 <style>
 :root {
-  --bg: #121212;
-  --card: #1e1e1e;
+  --bg: #0f0f0f;
+  --card: #1c1c1c;
   --text: #ffffff;
   --accent: #4caf50;
 }
 
 body.light {
-  --bg: #f4f4f4;
+  --bg: #f3f3f3;
   --card: #ffffff;
   --text: #000000;
 }
@@ -35,35 +35,25 @@ body {
 
 .container {
   max-width: 420px;
+  width: 100%;
   padding: 15px;
 }
 
 h1 {
   text-align: center;
+  margin-bottom: 10px;
 }
 
 #board {
   width: 100%;
-  margin: 10px auto;
+  margin: auto;
 }
 
 .panel {
   background: var(--card);
-  padding: 10px;
-  border-radius: 8px;
-  margin-top: 10px;
-}
-
-button {
-  width: 100%;
-  padding: 10px;
-  margin-top: 6px;
-  border: none;
-  border-radius: 6px;
-  background: var(--accent);
-  color: white;
-  font-size: 16px;
-  cursor: pointer;
+  padding: 12px;
+  border-radius: 10px;
+  margin-top: 12px;
 }
 
 .timer {
@@ -72,8 +62,16 @@ button {
   font-weight: bold;
 }
 
-.highlight {
-  background: radial-gradient(circle, rgba(0,255,0,0.4) 40%, transparent 45%);
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
 }
 </style>
 </head>
@@ -98,32 +96,66 @@ button {
   <button onclick="resetGame()">🔄 New Game</button>
 </div>
 
+<!-- Sounds -->
 <audio id="moveSound" src="https://cdn.pixabay.com/audio/2022/03/15/audio_5c7fba9d3d.mp3"></audio>
 <audio id="captureSound" src="https://cdn.pixabay.com/audio/2022/03/15/audio_1b9a76db5c.mp3"></audio>
 
 </div>
 
 <script>
-let board = null;
-let game = new Chess();
+let board;
+let game;
 
 let whiteSeconds = 300;
 let blackSeconds = 300;
 let timer = null;
 
-const statusEl = document.getElementById("status");
 const whiteTimeEl = document.getElementById("whiteTime");
 const blackTimeEl = document.getElementById("blackTime");
+const statusEl = document.getElementById("status");
 
 const moveSound = document.getElementById("moveSound");
 const captureSound = document.getElementById("captureSound");
 
-function onDragStart (source, piece) {
-  if (game.game_over()) return false;
-  if (game.turn() === 'b' && piece.search(/^w/) !== -1) return false;
+/* ---------------- TIMER ---------------- */
+
+function startTimer() {
+  stopTimer();
+  timer = setInterval(() => {
+    if (game.turn() === 'w') whiteSeconds--;
+    else blackSeconds--;
+
+    whiteTimeEl.textContent = formatTime(whiteSeconds);
+    blackTimeEl.textContent = formatTime(blackSeconds);
+
+    if (whiteSeconds <= 0 || blackSeconds <= 0) {
+      statusEl.textContent = "⏱️ Time Over!";
+      stopTimer();
+    }
+  }, 1000);
 }
 
-function onDrop (source, target) {
+function stopTimer() {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+/* ---------------- GAME LOGIC ---------------- */
+
+function onDragStart(source, piece) {
+  if (game.game_over()) return false;
+  if (game.turn() === 'b' && piece.startsWith('w')) return false;
+}
+
+function onDrop(source, target) {
   const move = game.move({
     from: source,
     to: target,
@@ -150,69 +182,56 @@ function makeAIMove() {
 }
 
 function updateStatus() {
-  let status = "";
-
   if (game.in_checkmate()) {
-    status = "♚ Checkmate!";
+    statusEl.textContent = "♚ Checkmate!";
     stopTimer();
   } else if (game.in_check()) {
-    status = "⚠️ Check!";
+    statusEl.textContent = "⚠️ Check!";
   } else {
-    status = (game.turn() === 'w' ? "White" : "Black") + "'s turn";
+    statusEl.textContent =
+      (game.turn() === 'w' ? "White" : "Black") + "'s turn";
   }
-
-  statusEl.textContent = status;
 }
 
-function updateTimers() {
-  timer = setInterval(() => {
-    if (game.turn() === 'w') whiteSeconds--;
-    else blackSeconds--;
-
-    whiteTimeEl.textContent = formatTime(whiteSeconds);
-    blackTimeEl.textContent = formatTime(blackSeconds);
-
-    if (whiteSeconds <= 0 || blackSeconds <= 0) {
-      statusEl.textContent = "⏱️ Time Over!";
-      stopTimer();
-    }
-  }, 1000);
-}
-
-function stopTimer() {
-  clearInterval(timer);
-}
-
-function formatTime(sec) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${s.toString().padStart(2,'0')}`;
-}
+/* ---------------- CONTROLS ---------------- */
 
 function resetGame() {
-  game.reset();
-  board.start();
-  whiteSeconds = blackSeconds = 300;
-  updateStatus();
   stopTimer();
-  updateTimers();
+  game = new Chess();
+  board.position('start');
+
+  whiteSeconds = 300;
+  blackSeconds = 300;
+
+  whiteTimeEl.textContent = "05:00";
+  blackTimeEl.textContent = "05:00";
+
+  updateStatus();
+  startTimer();
 }
 
 function toggleTheme() {
   document.body.classList.toggle("light");
 }
 
-const config = {
-  draggable: true,
-  position: 'start',
-  onDragStart,
-  onDrop,
-  onSnapEnd: () => board.position(game.fen())
-};
+/* ---------------- INIT ---------------- */
 
-board = Chessboard('board', config);
-updateStatus();
-updateTimers();
+function init() {
+  game = new Chess();
+
+  board = Chessboard('board', {
+    draggable: true,
+    position: 'start',
+    onDragStart,
+    onDrop,
+    onSnapEnd: () => board.position(game.fen())
+  });
+
+  updateStatus();
+  startTimer();
+}
+
+init();
 </script>
 
 </body>
