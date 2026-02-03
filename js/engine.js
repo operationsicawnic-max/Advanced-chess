@@ -1,14 +1,13 @@
 import { state } from "./state.js";
 
-export function initEngine(onAIMove) {
+export function initEngine(onMove) {
   state.engine = new Worker(
     "https://cdn.jsdelivr.net/gh/niklasf/stockfish.js@master/src/stockfish.js"
   );
 
   state.engine.onmessage = e => {
     if (e.data.startsWith("bestmove")) {
-      const m = e.data.split(" ")[1];
-      onAIMove(m);
+      onMove(e.data.split(" ")[1]);
     }
   };
 }
