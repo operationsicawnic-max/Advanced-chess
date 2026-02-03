@@ -1,19 +1,14 @@
 :root {
   --bg: #0f0f0f;
   --card: #1e1e1e;
-  --text: #fff;
+  --text: #ffffff;
   --accent: #4caf50;
-  --radius: 8px;
 }
 
 body.light {
   --bg: #f4f4f4;
   --card: #ffffff;
   --text: #000000;
-}
-
-* {
-  box-sizing: border-box;
 }
 
 body {
@@ -43,7 +38,7 @@ h1 {
 .panel {
   background: var(--card);
   padding: 10px;
-  border-radius: var(--radius);
+  border-radius: 8px;
   margin-top: 10px;
 }
 
@@ -58,7 +53,7 @@ button, select {
   padding: 10px;
   margin-top: 6px;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 6px;
   background: var(--accent);
   color: white;
   font-size: 15px;
@@ -69,8 +64,4 @@ button, select {
   max-height: 120px;
   overflow-y: auto;
   font-size: 14px;
-}
-
-.highlight {
-  background: radial-gradient(circle, rgba(0,255,0,.4) 40%, transparent 45%) !important;
 }
