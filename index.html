@@ -2,17 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Advanced Chess</title>
+<title>Ultimate Chess</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Libraries -->
+<!-- Chess libs -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css"/>
 
 <style>
 :root {
-  --bg:#0f0f0f;
+  --bg:#0e0e0e;
   --card:#1c1c1c;
   --text:#fff;
   --accent:#4caf50;
@@ -26,194 +26,198 @@ body {
   margin:0;
   background:var(--bg);
   color:var(--text);
-  font-family:Arial,sans-serif;
+  font-family:Arial, sans-serif;
   display:flex;
   justify-content:center;
 }
 .container {
   max-width:420px;
   width:100%;
-  padding:15px;
+  padding:12px;
 }
 h1 { text-align:center; }
 #board { width:100%; }
 .panel {
   background:var(--card);
-  padding:12px;
+  padding:10px;
   border-radius:10px;
-  margin-top:12px;
+  margin-top:10px;
 }
 .timer {
   display:flex;
   justify-content:space-between;
   font-weight:bold;
 }
-button {
+button, select {
   width:100%;
-  padding:12px;
-  margin-top:8px;
+  padding:10px;
+  margin-top:6px;
   border:none;
   border-radius:8px;
   background:var(--accent);
   color:white;
-  font-size:16px;
-  cursor:pointer;
+  font-size:15px;
+}
+select { background:#333; }
+#moves {
+  max-height:120px;
+  overflow:auto;
+  font-size:14px;
+}
+.highlight {
+  background:radial-gradient(circle, rgba(0,255,0,.4) 40%, transparent 45%) !important;
 }
 </style>
 </head>
 
-<body class="dark">
+<body>
 <div class="container">
 
-<h1>♟️ Chess</h1>
+<h1>♟️ Ultimate Chess</h1>
+
 <div id="board"></div>
 
 <div class="panel">
   <div class="timer">
-    <span>White ⏱️ <span id="whiteTime">05:00</span></span>
-    <span>Black ⏱️ <span id="blackTime">05:00</span></span>
+    <span>White ⏱️ <span id="wTime">05:00</span></span>
+    <span>Black ⏱️ <span id="bTime">05:00</span></span>
   </div>
   <p id="status"></p>
 </div>
 
 <div class="panel">
-  <button onclick="toggleTheme()">🌙 Toggle Dark Mode</button>
-  <button onclick="resetGame()">🔄 New Game</button>
+  <select id="level">
+    <option value="5">🤖 Easy</option>
+    <option value="10">🤖 Medium</option>
+    <option value="15">🤖 Hard</option>
+  </select>
+  <button onclick="undoMove()">↩️ Undo</button>
+  <button onclick="newGame()">🔄 New Game</button>
+  <button onclick="toggleTheme()">🌙 Toggle Theme</button>
 </div>
 
-<audio id="moveSound" src="https://cdn.pixabay.com/audio/2022/03/15/audio_5c7fba9d3d.mp3"></audio>
-<audio id="captureSound" src="https://cdn.pixabay.com/audio/2022/03/15/audio_1b9a76db5c.mp3"></audio>
+<div class="panel">
+  <strong>Moves</strong>
+  <div id="moves"></div>
+</div>
+
+<audio id="moveS" src="https://cdn.pixabay.com/audio/2022/03/15/audio_5c7fba9d3d.mp3"></audio>
+<audio id="capS" src="https://cdn.pixabay.com/audio/2022/03/15/audio_1b9a76db5c.mp3"></audio>
 
 </div>
 
 <script>
-let board;
-let game;
-let timer = null;
+let board, game, engine;
+let timer=null, wSec=300, bSec=300;
 
-let whiteSeconds = 300;
-let blackSeconds = 300;
+const wTime=document.getElementById("wTime");
+const bTime=document.getElementById("bTime");
+const status=document.getElementById("status");
+const movesDiv=document.getElementById("moves");
 
-const whiteTimeEl = document.getElementById("whiteTime");
-const blackTimeEl = document.getElementById("blackTime");
-const statusEl = document.getElementById("status");
-const moveSound = document.getElementById("moveSound");
-const captureSound = document.getElementById("captureSound");
+const moveS=document.getElementById("moveS");
+const capS=document.getElementById("capS");
 
 /* ---------------- TIMER ---------------- */
-function startTimer() {
+function startTimer(){
   stopTimer();
-  timer = setInterval(() => {
-    if (game.turn() === 'w') whiteSeconds--;
-    else blackSeconds--;
-
-    whiteTimeEl.textContent = formatTime(whiteSeconds);
-    blackTimeEl.textContent = formatTime(blackSeconds);
-
-    if (whiteSeconds <= 0 || blackSeconds <= 0) {
-      statusEl.textContent = "⏱️ Time Over!";
-      stopTimer();
-    }
-  }, 1000);
+  timer=setInterval(()=>{
+    game.turn()==='w'?wSec--:bSec--;
+    wTime.textContent=format(wSec);
+    bTime.textContent=format(bSec);
+  },1000);
 }
+function stopTimer(){ if(timer){clearInterval(timer);timer=null;} }
+function format(s){return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
 
-function stopTimer() {
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
+/* ---------------- ENGINE ---------------- */
+function initEngine(){
+  engine=new Worker("https://cdn.jsdelivr.net/npm/stockfish@16/stockfish.js");
+  engine.postMessage("uci");
+}
+function aiMove(){
+  engine.postMessage("position fen "+game.fen());
+  engine.postMessage("go depth "+document.getElementById("level").value);
+}
+engineMessage = e=>{
+  if(e.data.startsWith("bestmove")){
+    const m=e.data.split(" ")[1];
+    game.move({from:m.slice(0,2),to:m.slice(2,4),promotion:'q'});
+    board.position(game.fen());
+    update();
   }
 }
 
-function formatTime(sec) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${s.toString().padStart(2,"0")}`;
+/* ---------------- GAME ---------------- */
+function onDragStart(s,p){
+  if(game.game_over()) return false;
+  if(game.turn()==='b' && p.startsWith('w')) return false;
+  highlight(s);
 }
-
-/* ---------------- CHESS ---------------- */
-function onDragStart(source, piece) {
-  if (game.game_over()) return false;
-  if (game.turn() === 'b' && piece.startsWith('w')) return false;
+function onDrop(s,t){
+  clearHighlight();
+  const m=game.move({from:s,to:t,promotion:'q'});
+  if(!m) return "snapback";
+  (m.captured?capS:moveS).play();
+  update();
+  setTimeout(aiMove,300);
 }
-
-function onDrop(source, target) {
-  const move = game.move({
-    from: source,
-    to: target,
-    promotion: 'q'
-  });
-
-  if (move === null) return 'snapback';
-
-  (move.captured ? captureSound : moveSound).play();
-  updateStatus();
-  setTimeout(makeAIMove, 300);
-}
-
-function makeAIMove() {
-  if (game.game_over()) return;
-  const moves = game.moves();
-  const move = moves[Math.floor(Math.random() * moves.length)];
-  game.move(move);
-  moveSound.play();
+function update(){
   board.position(game.fen());
-  updateStatus();
+  movesDiv.innerHTML=game.history().join("<br>");
+  if(game.in_checkmate()) status.textContent="♚ Checkmate!";
+  else if(game.in_check()) status.textContent="⚠️ Check!";
+  else status.textContent=(game.turn()==='w'?"White":"Black")+" to move";
 }
 
-function updateStatus() {
-  if (game.in_checkmate()) {
-    statusEl.textContent = "♚ Checkmate!";
-    stopTimer();
-  } else if (game.in_check()) {
-    statusEl.textContent = "⚠️ Check!";
-  } else {
-    statusEl.textContent =
-      (game.turn() === 'w' ? "White" : "Black") + "'s turn";
-  }
+/* ---------------- HIGHLIGHT ---------------- */
+function highlight(s){
+  game.moves({square:s,verbose:true})
+    .forEach(m=>{
+      document.querySelector(`[data-square='${m.to}']`)?.classList.add("highlight");
+    });
+}
+function clearHighlight(){
+  document.querySelectorAll(".highlight").forEach(e=>e.classList.remove("highlight"));
 }
 
 /* ---------------- CONTROLS ---------------- */
-function resetGame() {
+function undoMove(){
+  game.undo(); game.undo();
+  update();
+}
+function newGame(){
+  if(!confirm("Start a new game?")) return;
   stopTimer();
-
-  // 🔥 CRITICAL FIX
-  board.destroy();     // destroy old board
-  game = new Chess();  // fresh game
-
-  whiteSeconds = 300;
-  blackSeconds = 300;
-  whiteTimeEl.textContent = "05:00";
-  blackTimeEl.textContent = "05:00";
-
-  initBoard();         // recreate board
-  updateStatus();
+  board.destroy();
+  game=new Chess();
+  wSec=bSec=300;
+  wTime.textContent=bTime.textContent="05:00";
+  initBoard();
+  update();
   startTimer();
 }
-
-function toggleTheme() {
-  document.body.classList.toggle("light");
-}
+function toggleTheme(){document.body.classList.toggle("light");}
 
 /* ---------------- INIT ---------------- */
-function initBoard() {
-  board = Chessboard("board", {
-    draggable: true,
-    position: "start",
+function initBoard(){
+  board=Chessboard("board",{
+    draggable:true,
+    position:"start",
     onDragStart,
     onDrop,
-    onSnapEnd: () => board.position(game.fen())
+    onSnapEnd:()=>board.position(game.fen())
   });
 }
-
-function init() {
-  game = new Chess();
+function init(){
+  game=new Chess();
+  initEngine();
+  engine.onmessage=engineMessage;
   initBoard();
-  updateStatus();
+  update();
   startTimer();
 }
-
 init();
 </script>
-
 </body>
 </html>
