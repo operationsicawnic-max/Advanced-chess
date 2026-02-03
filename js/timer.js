@@ -3,7 +3,7 @@ import { state } from "./state.js";
 export function startTimer(updateUI) {
   stopTimer();
   state.timer = setInterval(() => {
-    if (state.game.turn() === 'w') state.whiteTime--;
+    if (state.game.turn() === "w") state.whiteTime--;
     else state.blackTime--;
     updateUI();
   }, 1000);
