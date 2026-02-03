@@ -5,16 +5,25 @@ export function initBoard(updateUI) {
   state.board = Chessboard("board", {
     draggable: true,
     position: "start",
-    onDragStart: (s, p) => {
+    onDragStart: (source, piece) => {
       if (state.game.game_over()) return false;
-      if (state.game.turn() === 'b' && p.startsWith('w')) return false;
+      if (state.game.turn() === "b" && piece.startsWith("w")) return false;
     },
-    onDrop: (s, t) => {
-      const move = state.game.move({ from: s, to: t, promotion: 'q' });
+    onDrop: (source, target) => {
+      const move = state.game.move({
+        from: source,
+        to: target,
+        promotion: "q"
+      });
+
       if (!move) return "snapback";
+
       updateUI();
-      setTimeout(() => makeAIMove(document.getElementById("level").value), 200);
+      setTimeout(() =>
+        makeAIMove(document.getElementById("level").value), 300);
     },
-    onSnapEnd: () => state.board.position(state.game.fen())
+    onSnapEnd: () => {
+      state.board.position(state.game.fen());
+    }
   });
 }
